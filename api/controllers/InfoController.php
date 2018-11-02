@@ -61,8 +61,45 @@ class InfoController extends BaseController
 	 */
 	public function actionRandom()
 	{
+		$red = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32", "33"];
+		// 打乱数组
+		shuffle($red);
+		shuffle($red);
+		shuffle($red);
+		$blue = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12", "13", "14", "15", "16"];
+		shuffle($blue);
 		$req = Yii::$app->request;
 		$info = $req->get();
-		return $this->sendSucc($info);
+		$openid = $info['openid'];
+		$data = json_decode($info['data'], true);
+		$renew = false;
+		if ($data['create']) {
+			$renew = true;
+		}
+		unset($data['create']);
+		unset($data['__webviewId__']);
+		$redKeys = array_rand($red, 6);
+		$redBalls = [];
+		foreach ($redKeys as $key => $value) {
+			$redBalls[] = $red[$value];
+		}
+		asort($redBalls);
+		$redBalls = array_values($redBalls);
+		$blueKey = array_rand($blue, 1);
+		$i = 0;
+		foreach ($data as $key => $value) {
+			if ($renew || empty($value)) {
+				if ($i == 6) {
+					$data[$key] = $blue[$blueKey];
+				}else{
+					$data[$key] = $redBalls[$i];
+				}
+			}
+			$i++;
+		}
+
+		$data['create'] = true;
+
+		return $this->sendSucc($data);
 	}
 }
