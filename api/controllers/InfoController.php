@@ -5,6 +5,7 @@ use Yii;
 use api\controllers\bases\BaseController;
 use common\helpers\HttpHelper;
 use yii\mongodb\Query;
+use yii\base\Security;
 /**
  * Site controller
  */
@@ -70,7 +71,7 @@ class InfoController extends BaseController
 		shuffle($blue);
 		$req = Yii::$app->request;
 		$info = $req->get();
-		$openid = $info['openid'];
+		$userInfo = json_decode($info['userInfo'], true);
 		$data = json_decode($info['data'], true);
 		$renew = false;
 		if ($data['create']) {
@@ -86,20 +87,83 @@ class InfoController extends BaseController
 		asort($redBalls);
 		$redBalls = array_values($redBalls);
 		$blueKey = array_rand($blue, 1);
+		$saveBall = [];
 		$i = 0;
 		foreach ($data as $key => $value) {
 			if ($renew || empty($value)) {
 				if ($i == 6) {
 					$data[$key] = $blue[$blueKey];
+					$saveBall[] = $blue[$blueKey];
 				}else{
 					$data[$key] = $redBalls[$i];
+					$saveBall[] = $redBalls[$i];
 				}
 			}
 			$i++;
 		}
 
 		$data['create'] = true;
+		$randomId = (new Security)->generateRandomString();
+		$data['ballId'] = $randomId;
+		$qishu = $this->qishu();
+		$collection = Yii::$app->mongodb->getCollection('balls');
+		$collection->insert([ 
+			'date' => date("Y-m-d"),
+			'id' => $randomId,
+			'balls' => $saveBall, 
+			'img' => $userInfo['avatarUrl'],
+			'name' => $this->substrCut($userInfo['nickName']),
+			'openid' => $userInfo['openid'],
+			'qishu' => $qishu,
+			'result' => '未开奖',
+			'open' => false,
+			'borderStyle' => 2,
+			'createtime' => time(),
+			'updatetime' => time(),
+		]);
 
 		return $this->sendSucc($data);
+	}
+	/**
+	 * 获取期数
+	 * @return [type] [description]
+	 */
+	public function qishu()
+	{
+		$query = new Query;
+        $temp = $query->select(['qishu'])
+        	->from('qishu')
+        	->all();
+        $qishu = 000000;
+        foreach ($temp as $key => $item) {
+        	$qishu = $item['qishu'];
+        }
+        return $qishu;
+	}
+	/**
+	 * 只保留字符串首尾字符，隐藏中间用*代替（两个字符时只显示第一个）
+	 * @param string $user_name 姓名
+	 * @return string 格式化后的姓名
+	 */
+	function substrCut($userName){
+		if (empty($userName)) {
+			return $userName;
+		}
+	    $strlen     = mb_strlen($userName, 'utf-8');
+	    $firstStr     = mb_substr($userName, 0, 1, 'utf-8');
+	    $lastStr     = mb_substr($userName, -1, 1, 'utf-8');
+	    return $firstStr . str_repeat("*", 2) . $lastStr;
+	}
+	public function actionTest()
+	{
+		// 手动创建第一期期数。
+		// $data = [
+		// 	'qishu' => 2018129,
+		// 	'createtime' => time(),
+		// 	'updatetime' => time(),
+		// ];
+		// $collection = Yii::$app->mongodb->getCollection('qishu');
+		// $collection->insert($data);
+		return $this->qishu();
 	}
 }
