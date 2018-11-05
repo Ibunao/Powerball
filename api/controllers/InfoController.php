@@ -11,6 +11,7 @@ use yii\base\Security;
  */
 class InfoController extends BaseController
 {
+	public $pageSize = 10;
 	/**
 	 * 通过code获取openid
 	 * @param  [type] $code [description]
@@ -77,8 +78,6 @@ class InfoController extends BaseController
 		if ($data['create']) {
 			$renew = true;
 		}
-		unset($data['create']);
-		unset($data['__webviewId__']);
 		$redKeys = array_rand($red, 6);
 		$redBalls = [];
 		foreach ($redKeys as $key => $value) {
@@ -89,13 +88,13 @@ class InfoController extends BaseController
 		$blueKey = array_rand($blue, 1);
 		$saveBall = [];
 		$i = 0;
-		foreach ($data as $key => $value) {
+		foreach ($data['generate'] as $key => $value) {
 			if ($renew || empty($value)) {
 				if ($i == 6) {
-					$data[$key] = $blue[$blueKey];
+					$data['generate'][$key] = $blue[$blueKey];
 					$saveBall[] = $blue[$blueKey];
 				}else{
-					$data[$key] = $redBalls[$i];
+					$data['generate'][$key] = $redBalls[$i];
 					$saveBall[] = $redBalls[$i];
 				}
 			}
@@ -124,6 +123,146 @@ class InfoController extends BaseController
 
 		return $this->sendSucc($data);
 	}
+	/**
+	 * 首页要显示的最后一期的号码
+	 * @return [type] [description]
+	 */
+	public function actionLastBall()
+	{
+		return $this->sendSucc(['qishu'=> 2018126, 'balls' => ["08", "08", "08", "08", "08", "08", "08",]]);
+	}
+	/**
+	 * 历史记录
+	 * @return [type] [description]
+	 */
+	public function actionHistoryList()
+	{
+		
+	}
+	/**
+	 * 我的生成列表
+	 * @return [type] [description]
+	 */
+	public function actionMyList()
+	{
+		$req = Yii::$app->request;
+		$openid = $req->get('openid', '');
+		$page = $req->get('page', '0');
+		if (!$openid) {
+			return $this->sendSucc([]);
+		}
+		$query = new Query;
+		$pipelines[] = [
+			'$group'=>[
+				'_id'=> '$date',
+				'qishu' => ['$first' => '$qishu'],
+				'result' => ['$first' => '$result'],
+				'date' => ['$first' => '$date'],
+			],
+
+		];
+        $pipelines[] = ['$sort' => ['date' => 1]];//1正序 -1倒序
+		// 注意顺序，先skip在limit 
+        $pipelines[] = ['$skip' => (int)$page * $this->pageSize];
+        $pipelines[] = ['$limit' => $this->pageSize];
+
+		$dateInfo = $query->select(['date', 'result', 'qishu'])
+	    	->from('balls')
+	    	->getCollection()
+	    	->aggregate($pipelines);
+	    $result = [];
+	    $dateArr = [];
+	    foreach ($dateInfo as $key => $item) {
+	    	if ($item['result'] != "未开奖") {
+	    		$item['result'] = '已开奖';
+	    	}
+	    	$result[$item['date']] = $item;
+	    	$dateArr[] = $item['date'];
+	    }
+	    $temp = (new Query)->select(['balls', 'result', 'date', 'id', 'open'])
+	    	->from('balls')
+	    	->where(['date' => $dateArr])
+	    	->orderBy(['date' => -1])
+	    	->all();
+	    foreach ($temp as $key => $ball) {
+	    	$result[$ball['date']]['items'][] = $ball;
+	    }
+	    arsort($result);
+	    $result = array_values($result);
+	    return $this->sendSucc($result);
+	}
+	/**
+	 * 帮买列表
+	 * @return [type] [description]
+	 */
+	public function actionBangmaiList()
+	{
+		
+	}
+	/**
+	 * 分享 帮人买
+	 * @return [type] [description]
+	 */
+	public function actionBangmai()
+	{
+		$req = Yii::$app->request;
+		$info = $req->get();
+		if ($info['openid'] && $info['ballId']) {
+
+			$ballInfo = $query->select(['img','balls', 'name', 'qishu'])
+            	->from('balls')
+            	->where(['id' => $info['ballId']])
+            	->one();
+            $hbInfo = $query->select(['items'])
+            	->from('helpbuy')
+            	->where(['openid' => $info['openid']])
+            	->all();
+
+            $data = [
+            	'ballId' => $info['ballId'],
+            	'shareTime' => time(),
+            ];
+            if (empty($hbInfo) && $ballInfo) {
+            	// 保存
+				$collection = Yii::$app->mongodb->getCollection('helpbuy');
+		        $collection->insert(['openid' => $info['openid'], 'items' => [$data]]);
+		        // 直接返回最后添加的数据
+		        $ballInfo['date'] = date("Y-m-d H:m:i");
+		        return $this->sendSucc([$ballInfo]);
+            }else{
+            	$ballArr = $ballIdArr = [];
+	            foreach ($hbInfo as $item) {
+	            	$ballArr[$item['ballId']] = $item;
+	            	$ballIdArr[] = $item['ballId'];
+	            }
+	            $ballIdArr = array_slice($ballIdArr, -9);
+	            $ballInfoArr = $query->select(['img','balls', 'name', 'qishu', 'id'])
+	            	->from('balls')
+	            	->where(['id' => $ballIdArr])
+	            	->all();
+	            $result = [];
+	            foreach ($ballInfoArr as $key => $item) {
+	            	$item['date'] = date("Y-m-d H:m:i", $ballArr[$item['id']]['shareTime']);
+	            	$result[] = $item;
+	            }
+	            // 不符合更新的，直接返回数据
+	            if (isset($ballArr[$info['ballId']]) || empty($ballInfo) || $ballInfo['openid'] == $info['openid']) {
+	            	return $this->sendSucc($result);
+	            }
+	            
+            	// 更新
+            	$collection = Yii::$app->mongodb->getCollection('helpbuy');
+		        $collection->update(['openid' => $info['openid']], ['items' => $data], "$pull");
+		        $ballInfo['date'] = date("Y-m-d H:m:i");
+		        $result[] = $ballInfo;
+		        return $this->sendSucc($result);
+            }
+
+		}else{
+			return $this->sendError('缺少参数');
+		}
+	}
+
 	/**
 	 * 获取期数
 	 * @return [type] [description]
