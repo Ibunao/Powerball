@@ -10,6 +10,7 @@ return [
     'id' => 'app-api',
     'basePath' => dirname(__DIR__),
     'bootstrap' => ['log'],
+    'timeZone' => 'Asia/Shanghai',
     'controllerNamespace' => 'api\controllers',
     'components' => [
         'request' => [

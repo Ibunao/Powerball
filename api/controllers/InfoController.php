@@ -75,7 +75,8 @@ class InfoController extends BaseController
 		$userInfo = json_decode($info['userInfo'], true);
 		$data = json_decode($info['data'], true);
 		$renew = false;
-		if ($data['create']) {
+		// 如果是重新生成或者第一次生成
+		if ($data['create'] || (isset($data['first']) && $data['first'])) {
 			$renew = true;
 		}
 		$redKeys = array_rand($red, 6);
@@ -97,6 +98,9 @@ class InfoController extends BaseController
 					$data['generate'][$key] = $redBalls[$i];
 					$saveBall[] = $redBalls[$i];
 				}
+			// 如果是固定值直接记录
+			}else{
+				$saveBall[] = $value;
 			}
 			$i++;
 		}
@@ -197,7 +201,34 @@ class InfoController extends BaseController
 	 */
 	public function actionBangmaiList()
 	{
-		
+		$req = Yii::$app->request;
+		$openid = $req->get('openid', '');
+		$page = $req->get('page', '0');
+		if (!$openid) {
+			return $this->sendSucc([]);
+		}
+		$query = new Query;
+        $hbInfo = $query->select(['items'])
+        	->from('helpbuy')
+        	->where(['openid' => $openid])
+        	->one();
+    	$ballArr = $ballIdArr = [];
+        foreach ($hbInfo['items'] as $item) {
+        	$ballArr[$item['ballId']] = $item;
+        	$ballIdArr[] = $item['ballId'];
+        }
+        $ballIdArr = array_slice($ballIdArr, -9);
+        $ballInfoArr = $query->select(['img','balls', 'name', 'qishu', 'id'])
+        	->from('balls')
+        	->where(['id' => $ballIdArr])
+        	->all();
+        $result = [];
+        foreach ($ballInfoArr as $key => $item) {
+        	$item['date'] = date("Y-m-d H:m:i", $ballArr[$item['id']]['shareTime']);
+        	$result[] = $item;
+        }
+
+        return $this->sendSucc($result);
 	}
 	/**
 	 * 分享 帮人买
@@ -207,16 +238,17 @@ class InfoController extends BaseController
 	{
 		$req = Yii::$app->request;
 		$info = $req->get();
+		$query = new Query;
 		if ($info['openid'] && $info['ballId']) {
 
-			$ballInfo = $query->select(['img','balls', 'name', 'qishu'])
+			$ballInfo = $query->select(['img','balls', 'name', 'qishu', 'openid'])
             	->from('balls')
             	->where(['id' => $info['ballId']])
             	->one();
             $hbInfo = $query->select(['items'])
             	->from('helpbuy')
             	->where(['openid' => $info['openid']])
-            	->all();
+            	->one();
 
             $data = [
             	'ballId' => $info['ballId'],
@@ -231,7 +263,7 @@ class InfoController extends BaseController
 		        return $this->sendSucc([$ballInfo]);
             }else{
             	$ballArr = $ballIdArr = [];
-	            foreach ($hbInfo as $item) {
+	            foreach ($hbInfo['items'] as $item) {
 	            	$ballArr[$item['ballId']] = $item;
 	            	$ballIdArr[] = $item['ballId'];
 	            }
@@ -252,7 +284,7 @@ class InfoController extends BaseController
 	            
             	// 更新
             	$collection = Yii::$app->mongodb->getCollection('helpbuy');
-		        $collection->update(['openid' => $info['openid']], ['items' => $data], "$pull");
+		        $collection->update(['openid' => $info['openid']], ['$push' => ['items' => $data]]);
 		        $ballInfo['date'] = date("Y-m-d H:m:i");
 		        $result[] = $ballInfo;
 		        return $this->sendSucc($result);
