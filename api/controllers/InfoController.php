@@ -156,6 +156,7 @@ class InfoController extends BaseController
 			return $this->sendSucc([]);
 		}
 		$query = new Query;
+		$pipelines[] = ['$match' => ['openid' => $openid]];//1正序 -1倒序
 		$pipelines[] = [
 			'$group'=>[
 				'_id'=> '$date',
@@ -186,6 +187,7 @@ class InfoController extends BaseController
 	    $temp = (new Query)->select(['balls', 'result', 'date', 'id', 'open'])
 	    	->from('balls')
 	    	->where(['date' => $dateArr])
+	    	->andWhere(['openid' => $openid])
 	    	->orderBy(['date' => -1])
 	    	->all();
 	    foreach ($temp as $key => $ball) {
