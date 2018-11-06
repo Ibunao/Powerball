@@ -212,6 +212,9 @@ class InfoController extends BaseController
         	->from('helpbuy')
         	->where(['openid' => $openid])
         	->one();
+        if (empty($hbInfo['items'])) {
+        	return $this->sendSucc([]);
+        }
     	$ballArr = $ballIdArr = [];
         foreach ($hbInfo['items'] as $item) {
         	$ballArr[$item['ballId']] = $item;
