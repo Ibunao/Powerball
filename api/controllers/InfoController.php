@@ -35,7 +35,8 @@ class InfoController extends BaseController
             $query = new Query;
             $temp = $query->select(['openid'])
             	->from('customer')
-            	->all();
+            	->where(['openid' => $temp['openid']])
+            	->one();
             if (empty($temp)) {
             	$collection = Yii::$app->mongodb->getCollection('customer');
 				$collection->insert($userInfo);
@@ -73,6 +74,7 @@ class InfoController extends BaseController
 		$req = Yii::$app->request;
 		$info = $req->get();
 		$userInfo = json_decode($info['userInfo'], true);
+
 		$data = json_decode($info['data'], true);
 		$renew = false;
 		// 如果是重新生成或者第一次生成
@@ -133,7 +135,15 @@ class InfoController extends BaseController
 	 */
 	public function actionLastBall()
 	{
-		return $this->sendSucc(['qishu'=> 2018126, 'balls' => ["08", "08", "08", "08", "08", "08", "08",]]);
+		$temp = (new Query)->select(['code', 'red', 'blue'])
+		    ->from('sourcedata')
+			->orderBy(['code' => -1])
+			->limit(1)
+			->one();
+		$balls = explode(',', $temp['red']);
+		$balls[] = $temp['blue'];
+
+		return $this->sendSucc(['qishu'=> $temp['code'], 'balls' => $balls]);
 	}
 	/**
 	 * 历史记录
@@ -141,7 +151,21 @@ class InfoController extends BaseController
 	 */
 	public function actionHistoryList()
 	{
-		
+		$req = Yii::$app->request;
+		$page = $req->get('page', '0');	
+		$temp = (new Query)->select(['code', 'red', 'blue', 'date', 'sales', 'poolmoney', 'prizegrades'])
+		    ->from('sourcedata')
+			->orderBy(['code' => -1])
+			->offset((int)$page * $this->pageSize)
+			->limit($this->pageSize)
+			->all();
+		$result = [];
+		foreach ($temp as $key => $item) {
+			$item['balls'] = explode(',', $item['red']);
+			$item['balls'][] = $item['blue'];
+			$result[] = $item;
+		}
+		return $this->sendSucc($result);
 	}
 	/**
 	 * 我的生成列表
