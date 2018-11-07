@@ -65,7 +65,7 @@ class PowerballController extends Controller
 		}
 		$openidArr = [];
 		foreach ($balls as $key => $item) {
-			if (isset($openidArr[$item['openid']])) {
+			if (!isset($openidArr[$item['openid']])) {
 				$openidArr[$item['openid']] = [];
 			}
 			$myRedArr = array_slice($item['balls'], 0, 6);
@@ -148,9 +148,7 @@ class PowerballController extends Controller
 		}
 		// 团购小程序的
         $template_id = '98Cbfqo2UbbqD_8VenBWfzIk0zP44XyN-_b5F6ilWT4';
-        var_dump($openidArr);
         foreach ($openidArr as $openid => $item) {
-        	var_dump($item);
 	        $sendInfo['touser'] = $openid;
 	        $sendInfo['template_id'] = $template_id;
 	        $sendInfo['page'] = '/pages/main/main'; // 跳转页
