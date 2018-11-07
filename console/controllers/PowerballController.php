@@ -196,5 +196,12 @@ class PowerballController extends Controller
 		curl_close($ch);
 		return $out_put;
 	}
-
+	/**
+	 * 测试
+	 * @return [type] [description]
+	 */
+	public function actionTest()
+	{
+		echo 'here';
+	}
 }
