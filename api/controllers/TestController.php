@@ -13,6 +13,7 @@ class TestController extends BaseController
 
 	public function actionTest()
 	{
+		return;
 		$query = new Query;
 		$mqishu = $query
 			->from('qishu')
