@@ -146,7 +146,6 @@ class PowerballController extends Controller
 		foreach ($temp as $key => $item) {
 			$formidArr[$item['openid']] = $item['formid'];
 		}
-		// 团购小程序的
         $template_id = '98Cbfqo2UbbqD_8VenBWfzIk0zP44XyN-_b5F6ilWT4';
         foreach ($openidArr as $openid => $item) {
 	        $sendInfo['touser'] = $openid;
