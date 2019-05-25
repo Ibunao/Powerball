@@ -55,7 +55,7 @@ class PowerballController extends Controller
 		$query = new Query;
 		$balls = $query
 			->from('balls')
-			->where(['qishu' => $source['code']])
+			->where(['qishu' => (int)$source['code']])
 			->all();
 		$redArr = explode(',', $source['red']);
 		$blue = $source['blue'];
@@ -202,6 +202,15 @@ class PowerballController extends Controller
 	 */
 	public function actionTest()
 	{
-		echo 'here';
+		$temp = json_decode($this->_request(2018132), true);
+		if ($temp['state'] != 0) {
+			echo "没有数据";
+			return;
+		}else{
+			$source = $temp['result'][0];
+			// 保存原始数据
+			$collection = Yii::$app->mongodb->getCollection('sourcedata');
+			$collection->insert($source);
+		}
 	}
 }
